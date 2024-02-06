@@ -35,7 +35,7 @@ Flags:
   -s, --summary string          Summary of the issue (required)
   -t, --time string             Time estimation (required)
 
-./cmd/jiraissue \
+go run ./cmd \
   --summary "New Awesome created through jiraissue cli" \
   --time "4h" \
   --description 'Issue created while testing `jiraissue` cli App' \
