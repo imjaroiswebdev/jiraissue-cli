@@ -1,4 +1,4 @@
-# Jira issue creator cli prototyping project
+# Jira issue creator cli
 
 ## Description
 
