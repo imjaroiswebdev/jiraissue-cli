@@ -26,6 +26,7 @@ Usage:
   jiraissue [flags]
 
 Flags:
+      --assignee string         Issue assignee id
   -c, --component stringArray   Components names separated list
       --debug                   Enable debug of API calls
   -d, --description string      Description of the issue
@@ -33,7 +34,7 @@ Flags:
   -h, --help                    help for jiraissue
   -l, --label stringArray       Labels names separated list
   -s, --summary string          Summary of the issue (required)
-  -t, --time string             Time estimation (required)
+  -t, --time string             Time estimation
 
 go run ./cmd \
   --summary "New Awesome created through jiraissue cli" \

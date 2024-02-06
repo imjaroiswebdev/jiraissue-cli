@@ -12,6 +12,7 @@ import (
 
 func main() {
 	var (
+		assigneeID     string
 		summary        string
 		timeEstimate   string
 		description    string
@@ -25,16 +26,22 @@ func main() {
 		Use:   "jiraissue",
 		Short: "Jira CLI to create issues",
 		Run: func(cmd *cobra.Command, args []string) {
-			assigneeID, ok := os.LookupEnv("JIRA_ASSIGNEE_ID")
-			if !ok {
-				log.Fatal("Environment Variable JIRA_ASSIGNEE_ID not set")
+			var assignee string
+			if assigneeID != "" {
+				assignee = assigneeID
+			} else {
+				var ok bool
+				assignee, ok = os.LookupEnv("JIRA_ASSIGNEE_ID")
+				if !ok {
+					log.Fatal("Issue Assignee should be passed in either through --assignee flag, or Environment Variable JIRA_ASSIGNEE_ID")
+				}
 			}
 
 			// [ ] TODO: Turn this hardcoded values into env var or params
 			issueType := "Story"
 			priorityID := "2"
 
-			issueKey, err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicID, issueType, priorityID, assigneeID, *components, *labels, isDebugEnabled)
+			issueKey, err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicID, issueType, priorityID, assignee, *components, *labels, isDebugEnabled)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -50,15 +57,16 @@ func main() {
 	}
 
 	rootCmd.Flags().StringVarP(&summary, "summary", "s", "", "Summary of the issue (required)")
-	rootCmd.Flags().StringVarP(&timeEstimate, "time", "t", "", "Time estimation (required)")
+	rootCmd.Flags().StringVarP(&timeEstimate, "time", "t", "", "Time estimation")
 	rootCmd.Flags().StringVarP(&description, "description", "d", "", "Description of the issue")
 	rootCmd.Flags().StringVarP(&epicID, "epic", "e", "", "Epic ID")
+	rootCmd.Flags().StringVar(&assigneeID, "assignee", "", "Issue assignee id")
 	rootCmd.Flags().BoolVar(&isDebugEnabled, "debug", false, "Enable debug of API calls")
+
 	components = rootCmd.Flags().StringArrayP("component", "c", []string{}, "Components names separated list")
 	labels = rootCmd.Flags().StringArrayP("label", "l", []string{}, "Labels names separated list")
 
 	rootCmd.MarkFlagRequired("summary")
-	rootCmd.MarkFlagRequired("time")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
