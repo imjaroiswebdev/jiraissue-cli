@@ -35,7 +35,6 @@ Flags:
   -s, --summary string          Summary of the issue (required)
   -t, --time string             Time estimation (required)
 
-./cmd/jiraissue --summary "New Awesome created through jiraissue cli" --time "1" --description 'Issue created while testing `jiraissue` cli App' --epic "AWESOME-1758" --component 18901 --label "AWESOME_Label"
 ./cmd/jiraissue \
   --summary "New Awesome created through jiraissue cli" \
   --time "4h" \
