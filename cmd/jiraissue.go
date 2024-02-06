@@ -16,8 +16,8 @@ func main() {
 		timeEstimate   string
 		description    string
 		epicID         string
-		label          string
-		componentID    string
+		labels         *[]string
+		components     *[]string
 		isDebugEnabled bool
 	)
 
@@ -30,10 +30,11 @@ func main() {
 				log.Fatal("Environment Variable JIRA_ASSIGNEE_ID not set")
 			}
 
+			// [ ] TODO: Turn this hardcoded values into env var or params
 			issueType := "Story"
 			priorityID := "2"
 
-			issueKey, err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicID, label, issueType, componentID, priorityID, assigneeID, isDebugEnabled)
+			issueKey, err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicID, issueType, priorityID, assigneeID, *components, *labels, isDebugEnabled)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -43,7 +44,7 @@ func main() {
 			if jirasubdomain == "" {
 				successMsg = fmt.Sprintf("Issue created. %s", issueKey)
 			}
-			successMsg = fmt.Sprintf("Issue created. Link to issue https://pagerduty.atlassian.net/browse/%s", issueKey)
+			successMsg = fmt.Sprintf("Issue created. Link to issue https://%s.atlassian.net/browse/%s", jirasubdomain, issueKey)
 			fmt.Println(successMsg)
 		},
 	}
@@ -52,9 +53,9 @@ func main() {
 	rootCmd.Flags().StringVarP(&timeEstimate, "time", "t", "", "Time estimation (required)")
 	rootCmd.Flags().StringVarP(&description, "description", "d", "", "Description of the issue")
 	rootCmd.Flags().StringVarP(&epicID, "epic", "e", "", "Epic ID")
-	rootCmd.Flags().StringVarP(&label, "label", "l", "", "Label")
-	rootCmd.Flags().StringVarP(&componentID, "component", "c", "", "Component ID")
 	rootCmd.Flags().BoolVar(&isDebugEnabled, "debug", false, "Enable debug of API calls")
+	components = rootCmd.Flags().StringArrayP("component", "c", []string{}, "Components names separated list")
+	labels = rootCmd.Flags().StringArrayP("label", "l", []string{}, "Labels names separated list")
 
 	rootCmd.MarkFlagRequired("summary")
 	rootCmd.MarkFlagRequired("time")

@@ -26,14 +26,24 @@ Usage:
   jiraissue [flags]
 
 Flags:
-  -c, --component string     Component ID
-      --debug                Enable debug of API calls
-  -d, --description string   Description of the issue
-  -e, --epic string          Epic ID
-  -h, --help                 help for jiraissue
-  -l, --label string         Label
-  -s, --summary string       Summary of the issue (required)
-  -t, --time string          Time estimation (required)
+  -c, --component stringArray   Components names separated list
+      --debug                   Enable debug of API calls
+  -d, --description string      Description of the issue
+  -e, --epic string             Epic ID
+  -h, --help                    help for jiraissue
+  -l, --label stringArray       Labels names separated list
+  -s, --summary string          Summary of the issue (required)
+  -t, --time string             Time estimation (required)
 
 ./cmd/jiraissue --summary "New Awesome created through jiraissue cli" --time "1" --description 'Issue created while testing `jiraissue` cli App' --epic "AWESOME-1758" --component 18901 --label "AWESOME_Label"
+./cmd/jiraissue \
+  --summary "New Awesome created through jiraissue cli" \
+  --time "4h" \
+  --description 'Issue created while testing `jiraissue` cli App' \
+  --epic "AWESOME-1758" \
+  --component "BACKEND" \
+  --component "MIDDLEWARE" \
+  --component "FRONTEND" \
+  --label "AWESOME_LABEL" \
+  --label "GREAT_LABEL"
 ```

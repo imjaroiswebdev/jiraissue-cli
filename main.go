@@ -33,8 +33,9 @@ type Fields struct {
 }
 
 type FieldProps struct {
-	Key string `json:"key,omitempty"`
-	ID  string `json:"id,omitempty"`
+	Key  string `json:"key,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 type Issuetype struct {
@@ -58,10 +59,15 @@ type ContentDef struct {
 }
 
 // CreateJiraIssue creates an issue in Jira
-func CreateJiraIssue(summary, timeEstimate, description, epicKey, label, issueType, componentID, priorityID, assigneeID string, isDebugEnabled bool) (string, error) {
+func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID string, components, labels []string, isDebugEnabled bool) (string, error) {
+	// [ ] TODO: refactor params into an options struct for easier arguments management and validate this env vars at cmd.
 	jiraProjectKey, ok := os.LookupEnv("JIRA_PROJECT_KEY")
 	if !ok {
 		log.Fatal("Environment Variable JIRA_PROJECT_KEY not set")
+	}
+	jiraAPIToken, ok := os.LookupEnv("JIRA_API_TOKEN")
+	if !ok {
+		log.Fatal("Environment Variable JIRA_API_TOKEN not set")
 	}
 
 	issue := JiraIssue{
@@ -82,11 +88,6 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, label, issueTy
 				Type:    "doc",
 				Version: 1,
 			},
-			Components: []*FieldProps{
-				{
-					ID: componentID,
-				},
-			},
 			Issuetype: Issuetype{
 				Name: issueType,
 			},
@@ -102,12 +103,24 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, label, issueTy
 			Parent: &FieldProps{
 				Key: epicKey,
 			},
-			Labels: []string{label},
 			// TimeTracking: &TimeTracking{
 			// 	OriginalEstimate: timeEstimate,
 			// },
 		},
 	}
+
+	issueComponents := []*FieldProps{}
+	for _, c := range components {
+		issueComponents = append(issueComponents, &FieldProps{Name: c})
+	}
+
+	issueLabels := []string{}
+	for _, l := range labels {
+		issueLabels = append(issueLabels, l)
+	}
+
+	issue.Fields.Components = issueComponents
+	issue.Fields.Labels = issueLabels
 
 	issueJSON, err := json.Marshal(issue)
 	if err != nil {
@@ -120,7 +133,7 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, label, issueTy
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Basic "+os.Getenv("JIRA_API_TOKEN"))
+	req.Header.Set("Authorization", "Basic "+jiraAPIToken)
 
 	if isDebugEnabled {
 		dumpedReq, err := httputil.DumpRequest(req, true)
