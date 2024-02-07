@@ -69,6 +69,7 @@ Second issue created with CSV;This is a safe to delete issue created while testi
 ```
 
 ```sh
+# Using --assignee flag
 $ go run ./cmd \
   --assignee '62703a40ca1fef006ae18fed' \
   --csv ./jira_issues.csv
