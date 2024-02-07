@@ -60,7 +60,7 @@ Issue created. Link to issue https://pagerduty.atlassian.net/browse/PROJ-2920
 
 ## Bulk creation of Jira issues using CSV file
 
-### Content of CSV file `jira_issues.csv`
+### Content of CSV file `jira_issues.csv` used in the example
 
 ```csv
 summary;description;time;epic;components;labels
