@@ -2,6 +2,8 @@ package jiraissue
 
 import (
 	"bytes"
+	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +11,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strings"
+	"sync"
 )
 
 // JiraIssue represents the structure of the issue to be created
@@ -25,7 +29,7 @@ type Fields struct {
 	Project     Project       `json:"project"`
 	Priority    FieldProps    `json:"priority"`
 	Assignee    FieldProps    `json:"assignee"`
-	Parent      *FieldProps   `json:"parent,omitempty"` // EpicID
+	Parent      *FieldProps   `json:"parent,omitempty"` // EpicKey
 	Labels      []string      `json:"labels"`
 
 	// To use this setting is needed to follow the steps here https://community.atlassian.com/t5/Jira-Content-Archive-questions/Unable-to-set-TimeTracking-using-JIRA-API/qaq-p/1917217#M246455
@@ -58,8 +62,14 @@ type ContentDef struct {
 	Version int           `json:"version,omitempty"`
 }
 
+type Client struct {
+	httpClient *http.Client
+	APIToken   string
+	Debug      bool
+}
+
 // CreateJiraIssue creates an issue in Jira
-func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID string, components, labels []string, isDebugEnabled bool) (string, error) {
+func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID, csvPath string, components, labels []string, isDebugEnabled bool) error {
 	// [ ] TODO: refactor params into an options struct for easier arguments management and validate this env vars at cmd.
 	jiraProjectKey, ok := os.LookupEnv("JIRA_PROJECT_KEY")
 	if !ok {
@@ -70,58 +80,51 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, pri
 		log.Fatal("Environment Variable JIRA_API_TOKEN not set")
 	}
 
-	issue := JiraIssue{
-		Fields: Fields{
-			Summary: summary,
-			Description: &ContentDef{
-				Content: []*ContentDef{
-					{
-						Content: []*ContentDef{
-							{
-								Text: description,
-								Type: "text",
-							},
-						},
-						Type: "paragraph",
-					},
-				},
-				Type:    "doc",
-				Version: 1,
-			},
-			Issuetype: Issuetype{
-				Name: issueType,
-			},
-			Project: Project{
-				Key: jiraProjectKey,
-			},
-			Priority: FieldProps{
-				ID: priorityID,
-			},
-			Assignee: FieldProps{
-				ID: assigneeID,
-			},
-			Parent: &FieldProps{
-				Key: epicKey,
-			},
-			// TimeTracking: &TimeTracking{
-			// 	OriginalEstimate: timeEstimate,
-			// },
-		},
+	var issues = make([]*JiraIssue, 0)
+
+	if csvPath != "" {
+		var errCSV error
+		issues, errCSV = expandIssuesFromCSV(csvPath, priorityID, issueType, jiraProjectKey, assigneeID)
+		if errCSV != nil {
+			return errCSV
+		}
 	}
 
-	issueComponents := []*FieldProps{}
-	for _, c := range components {
-		issueComponents = append(issueComponents, &FieldProps{Name: c})
+	if csvPath == "" && summary == "" {
+		log.Fatal("When creating single Jira issues --summary flag is required")
 	}
 
-	issueLabels := []string{}
-	for _, l := range labels {
-		issueLabels = append(issueLabels, l)
+	if csvPath == "" && summary != "" {
+		issues = append(issues, createIssuePayload(IssuePayloadContent{
+			summary:        summary,
+			description:    description,
+			issueType:      issueType,
+			jiraProjectKey: jiraProjectKey,
+			priorityID:     priorityID,
+			assigneeID:     assigneeID,
+			epicKey:        epicKey,
+			timeEstimate:   timeEstimate,
+			components:     components,
+			labels:         labels,
+		}))
 	}
 
-	issue.Fields.Components = issueComponents
-	issue.Fields.Labels = issueLabels
+	c := &Client{
+		httpClient: &http.Client{},
+		APIToken:   jiraAPIToken,
+		Debug:      isDebugEnabled,
+	}
 
+	ctx := context.Background()
+	err := handleJiraIssuesCreation(ctx, c, issues)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createJiraIssueAPICall(ctx context.Context, c *Client, issue *JiraIssue) (string, error) {
 	issueJSON, err := json.Marshal(issue)
 	if err != nil {
 		return "", err
@@ -133,9 +136,10 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, pri
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Basic "+jiraAPIToken)
+	req.Header.Set("Authorization", "Basic "+c.APIToken)
 
-	if isDebugEnabled {
+	// [ ] TODO: Implement logging in roundtripper
+	if c.Debug {
 		dumpedReq, err := httputil.DumpRequest(req, true)
 		if err == nil {
 			log.Println("[DEBUG] Request::>", string(dumpedReq))
@@ -143,14 +147,14 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, pri
 		}
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	if isDebugEnabled {
+	// [ ] TODO: Implement logging in roundtripper
+	if c.Debug {
 		dumpedResp, err := httputil.DumpResponse(resp, true)
 		if err == nil {
 			log.Println("[DEBUG] Response::>", string(dumpedResp))
@@ -179,4 +183,172 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, pri
 	}
 
 	return issueID, nil
+}
+
+func handleJiraIssuesCreation(ctx context.Context, c *Client, issues []*JiraIssue) (err error) {
+	var wg sync.WaitGroup
+
+	jirasubdomain := os.Getenv("JIRA_SUBDOMAIN")
+
+	for _, iss := range issues {
+		wg.Add(1)
+
+		go func(issue *JiraIssue) {
+			defer wg.Done()
+
+			var issueKey string
+			issueKey, err = createJiraIssueAPICall(ctx, c, issue)
+
+			var successMsg string
+			if jirasubdomain == "" {
+				successMsg = fmt.Sprintf("Issue created. %s", issueKey)
+			}
+			successMsg = fmt.Sprintf("Issue created. Link to issue https://%s.atlassian.net/browse/%s", jirasubdomain, issueKey)
+			fmt.Println(successMsg)
+		}(iss)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	wg.Wait()
+
+	return err
+}
+
+type IssuePayloadContent struct {
+	summary        string
+	description    string
+	issueType      string
+	jiraProjectKey string
+	priorityID     string
+	assigneeID     string
+	epicKey        string
+	timeEstimate   string
+	components     []string
+	labels         []string
+}
+
+func createIssuePayload(c IssuePayloadContent) *JiraIssue {
+	var p JiraIssue = JiraIssue{
+		Fields: Fields{
+			Summary: c.summary,
+			Description: &ContentDef{
+				Content: []*ContentDef{
+					{
+						Content: []*ContentDef{
+							{
+								Text: c.description,
+								Type: "text",
+							},
+						},
+						Type: "paragraph",
+					},
+				},
+				Type:    "doc",
+				Version: 1,
+			},
+			Issuetype: Issuetype{
+				Name: c.issueType,
+			},
+			Project: Project{
+				Key: c.jiraProjectKey,
+			},
+			Priority: FieldProps{
+				ID: c.priorityID,
+			},
+			Assignee: FieldProps{
+				ID: c.assigneeID,
+			},
+			Parent: &FieldProps{
+				Key: c.epicKey,
+			},
+			// TimeTracking: &TimeTracking{
+			// 	OriginalEstimate: c.timeEstimate,
+			// },
+		},
+	}
+
+	issueComponents := []*FieldProps{}
+	for _, c := range c.components {
+		issueComponents = append(issueComponents, &FieldProps{Name: c})
+	}
+
+	issueLabels := []string{}
+	for _, l := range c.labels {
+		issueLabels = append(issueLabels, l)
+	}
+
+	p.Fields.Components = issueComponents
+	p.Fields.Labels = issueLabels
+
+	return &p
+}
+
+func expandIssuesFromCSV(csvPath, priorityID, issueType, jiraProjectKey, assigneeID string) ([]*JiraIssue, error) {
+	var issues = make([]*JiraIssue, 0)
+
+	csvBytes, err := os.ReadFile(csvPath)
+	if err != nil {
+		return nil, err
+	}
+
+	csvContent := string(csvBytes)
+	r := csv.NewReader(strings.NewReader(csvContent))
+	r.Comma = ';'
+	r.Comment = '#'
+	r.TrimLeadingSpace = true
+
+	for i := 0; i >= 0; i++ {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if i < 1 {
+			continue
+		}
+
+		// summary;description;time;epic;components;labels
+		var (
+			summary      = record[0]
+			description  = record[1]
+			timeEstimate = record[2]
+			epic         = record[3]
+			components   = expandListedCellValues(record[4])
+			labels       = expandListedCellValues(record[5])
+		)
+
+		issues = append(
+			issues,
+			createIssuePayload(IssuePayloadContent{
+				summary:        summary,
+				description:    description,
+				issueType:      issueType,
+				jiraProjectKey: jiraProjectKey,
+				priorityID:     priorityID,
+				assigneeID:     assigneeID,
+				epicKey:        epic,
+				timeEstimate:   timeEstimate,
+				components:     components,
+				labels:         labels,
+			}),
+		)
+	}
+
+	return issues, nil
+}
+
+func expandListedCellValues(r string) []string {
+	v := strings.Split(r, ",")
+	var result []string
+
+	for _, c := range v {
+		result = append(result, strings.TrimSpace(c))
+	}
+
+	return result
 }

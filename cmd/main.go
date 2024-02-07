@@ -16,7 +16,8 @@ func main() {
 		summary        string
 		timeEstimate   string
 		description    string
-		epicID         string
+		epicKey        string
+		csvPath        string
 		labels         *[]string
 		components     *[]string
 		isDebugEnabled bool
@@ -26,6 +27,7 @@ func main() {
 		Use:   "jiraissue",
 		Short: "Jira CLI to create issues",
 		Run: func(cmd *cobra.Command, args []string) {
+			// [ ] TODO: Refactor this to handle env vars validation more nicely
 			var assignee string
 			if assigneeID != "" {
 				assignee = assigneeID
@@ -41,32 +43,23 @@ func main() {
 			issueType := "Story"
 			priorityID := "2"
 
-			issueKey, err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicID, issueType, priorityID, assignee, *components, *labels, isDebugEnabled)
+			err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assignee, csvPath, *components, *labels, isDebugEnabled)
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			var successMsg string
-			jirasubdomain := os.Getenv("JIRA_SUBDOMAIN")
-			if jirasubdomain == "" {
-				successMsg = fmt.Sprintf("Issue created. %s", issueKey)
-			}
-			successMsg = fmt.Sprintf("Issue created. Link to issue https://%s.atlassian.net/browse/%s", jirasubdomain, issueKey)
-			fmt.Println(successMsg)
 		},
 	}
 
-	rootCmd.Flags().StringVarP(&summary, "summary", "s", "", "Summary of the issue (required)")
-	rootCmd.Flags().StringVarP(&timeEstimate, "time", "t", "", "Time estimation")
+	rootCmd.Flags().StringVarP(&summary, "summary", "s", "", "Summary of the issue (required for single Issue creation)")
+	rootCmd.Flags().StringVarP(&timeEstimate, "time", "t", "", "Time estimation in hours (e.g., 2h)")
 	rootCmd.Flags().StringVarP(&description, "description", "d", "", "Description of the issue")
-	rootCmd.Flags().StringVarP(&epicID, "epic", "e", "", "Epic ID")
+	rootCmd.Flags().StringVarP(&epicKey, "epic", "e", "", "Epic Key (e.g., PROJ-2948)")
 	rootCmd.Flags().StringVar(&assigneeID, "assignee", "", "Issue assignee id")
+	rootCmd.Flags().StringVar(&csvPath, "csv", "", "CSV file path for bulk Jira issues creation (e.g., ./jira_issues.csv)")
 	rootCmd.Flags().BoolVar(&isDebugEnabled, "debug", false, "Enable debug of API calls")
 
 	components = rootCmd.Flags().StringArrayP("component", "c", []string{}, "Components names separated list")
 	labels = rootCmd.Flags().StringArrayP("label", "l", []string{}, "Labels names separated list")
-
-	rootCmd.MarkFlagRequired("summary")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
