@@ -21,6 +21,7 @@ func main() {
 		labels         *[]string
 		components     *[]string
 		isDebugEnabled bool
+		fixVersionName string
 	)
 
 	var rootCmd = &cobra.Command{
@@ -43,7 +44,7 @@ func main() {
 			issueType := "Story"
 			priorityID := "2"
 
-			err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assignee, csvPath, *components, *labels, isDebugEnabled)
+			err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assignee, fixVersionName, csvPath, *components, *labels, isDebugEnabled)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -57,6 +58,7 @@ func main() {
 	rootCmd.Flags().StringVar(&assigneeID, "assignee", "", "Issue assignee id")
 	rootCmd.Flags().StringVar(&csvPath, "csv", "", "CSV file path for bulk Jira issues creation (e.g., ./jira_issues.csv)")
 	rootCmd.Flags().BoolVar(&isDebugEnabled, "debug", false, "Enable debug of API calls")
+	rootCmd.Flags().StringVar(&fixVersionName, "fixversion", "", "Fix version name for the issue")
 
 	components = rootCmd.Flags().StringArrayP("component", "c", []string{}, "Components names separated list")
 	labels = rootCmd.Flags().StringArrayP("label", "l", []string{}, "Labels names separated list")

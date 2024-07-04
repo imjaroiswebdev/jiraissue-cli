@@ -14,7 +14,7 @@ Supports creation of single Jira Issues through direct use `jiraissue` command p
 Set the following environment variables:
 - `JIRA_API_TOKEN`: Your Jira API token. [(How to get one)](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/)
 - `JIRA_PROJECT_KEY`: The key of your Jira project. (e.g., **PROJ**)
-- `JIRA_SUBDOMAIN`: (Optional) Your Jira subdomain. (e.g., `https://<subdomain>.atlassian.net`)
+- `JIRA_SUBDOMAIN`: (Optional) Your Jira sub domain. (e.g., `https://<subdomain>.atlassian.net`)
 - `JIRA_ASSIGNEE_ID`: Jira issue assignee id. (e.g., `62703a40ca1fae106ae98fed`)
 
 ## Usage
@@ -34,6 +34,7 @@ Flags:
       --debug                   Enable debug of API calls
   -d, --description string      Description of the issue
   -e, --epic string             Epic Key (e.g., PROJ-2948)
+      --fixversion string       Fix version name for the issue
   -h, --help                    help for jiraissue
   -l, --label stringArray       Labels names separated list
   -s, --summary string          Summary of the issue (required for single Issue creation)
@@ -63,9 +64,9 @@ Issue created. Link to issue https://pagerduty.atlassian.net/browse/PROJ-2920
 ### Content of CSV file `jira_issues.csv` used in the example
 
 ```csv
-summary;description;time;epic;components;labels
-First issue created with CSV;This is a safe to delete issue created while testing jiraissue cli App;2h;PROJ-2496;BACKEND, MIDDLEWARE;AWESOME_LABEL, GREAT_LABEL
-Second issue created with CSV;This is a safe to delete issue created while testing jiraissue cli App;2h;PROJ-2496;FRONTEND;GREAT_LABEL
+summary;description;time;epic;components;labels;fixVersionName
+First issue created with CSV;This is a safe to delete issue created while testing jiraissue cli App;2h;PROJ-2496;BACKEND, MIDDLEWARE;AWESOME_LABEL, GREAT_LABEL;August 2024
+Second issue created with CSV;This is a safe to delete issue created while testing jiraissue cli App;2h;PROJ-2496;FRONTEND;GREAT_LABEL;August 2024
 ```
 
 ```sh

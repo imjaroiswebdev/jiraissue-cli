@@ -31,6 +31,7 @@ type Fields struct {
 	Assignee    FieldProps    `json:"assignee"`
 	Parent      *FieldProps   `json:"parent,omitempty"` // EpicKey
 	Labels      []string      `json:"labels"`
+	FixVersions []*FixVersion `json:"fixVersions,omitempty"`
 
 	// To use this setting is needed to follow the steps here https://community.atlassian.com/t5/Jira-Content-Archive-questions/Unable-to-set-TimeTracking-using-JIRA-API/qaq-p/1917217#M246455
 	TimeTracking *TimeTracking `json:"timetracking,omitempty"`
@@ -68,8 +69,18 @@ type Client struct {
 	Debug      bool
 }
 
+type FixVersion struct {
+	Self        string `json:"self,omitempty"`
+	Description string `json:"description,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Id          string `json:"id,omitempty"`
+	Archived    *bool  `json:"archived,omitempty"`
+	Released    *bool  `json:"released,omitempty"`
+	ReleaseDate string `json:"releaseDate,omitempty"`
+}
+
 // CreateJiraIssue creates an issue in Jira
-func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID, csvPath string, components, labels []string, isDebugEnabled bool) error {
+func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID, fixVersionName, csvPath string, components, labels []string, isDebugEnabled bool) error {
 	// [ ] TODO: refactor params into an options struct for easier arguments management and validate this env vars at cmd.
 	jiraProjectKey, ok := os.LookupEnv("JIRA_PROJECT_KEY")
 	if !ok {
@@ -106,6 +117,7 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, pri
 			timeEstimate:   timeEstimate,
 			components:     components,
 			labels:         labels,
+			fixVersionName: fixVersionName,
 		}))
 	}
 
@@ -228,6 +240,7 @@ type IssuePayloadContent struct {
 	timeEstimate   string
 	components     []string
 	labels         []string
+	fixVersionName string
 }
 
 func createIssuePayload(c IssuePayloadContent) *JiraIssue {
@@ -267,6 +280,11 @@ func createIssuePayload(c IssuePayloadContent) *JiraIssue {
 			// TimeTracking: &TimeTracking{
 			// 	OriginalEstimate: c.timeEstimate,
 			// },
+			FixVersions: []*FixVersion{
+				{
+					Name: c.fixVersionName,
+				},
+			},
 		},
 	}
 
@@ -312,14 +330,15 @@ func expandIssuesFromCSV(csvPath, priorityID, issueType, jiraProjectKey, assigne
 			continue
 		}
 
-		// summary;description;time;epic;components;labels
+		// summary;description;time;epic;components;labels;fixVersionName
 		var (
-			summary      = record[0]
-			description  = record[1]
-			timeEstimate = record[2]
-			epic         = record[3]
-			components   = expandListedCellValues(record[4])
-			labels       = expandListedCellValues(record[5])
+			summary        = record[0]
+			description    = record[1]
+			timeEstimate   = record[2]
+			epic           = record[3]
+			components     = expandListedCellValues(record[4])
+			labels         = expandListedCellValues(record[5])
+			fixVersionName = record[6]
 		)
 
 		issues = append(
@@ -335,6 +354,7 @@ func expandIssuesFromCSV(csvPath, priorityID, issueType, jiraProjectKey, assigne
 				timeEstimate:   timeEstimate,
 				components:     components,
 				labels:         labels,
+				fixVersionName: fixVersionName,
 			}),
 		)
 	}
