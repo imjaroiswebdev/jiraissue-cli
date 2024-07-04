@@ -21,6 +21,7 @@ func main() {
 		labels         *[]string
 		components     *[]string
 		isDebugEnabled bool
+		isDryRunning   bool
 		fixVersionName string
 	)
 
@@ -44,7 +45,7 @@ func main() {
 			issueType := "Story"
 			priorityID := "2"
 
-			err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assignee, fixVersionName, csvPath, *components, *labels, isDebugEnabled)
+			err := jiraissue.CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assignee, fixVersionName, csvPath, *components, *labels, isDebugEnabled, isDryRunning)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -59,6 +60,7 @@ func main() {
 	rootCmd.Flags().StringVar(&csvPath, "csv", "", "CSV file path for bulk Jira issues creation (e.g., ./jira_issues.csv)")
 	rootCmd.Flags().BoolVar(&isDebugEnabled, "debug", false, "Enable debug of API calls")
 	rootCmd.Flags().StringVar(&fixVersionName, "fixversion", "", "Fix version name for the issue")
+	rootCmd.Flags().BoolVar(&isDryRunning, "dry-run", false, "Dry run mode, no issue will be created, but the payload will be printed")
 
 	components = rootCmd.Flags().StringArrayP("component", "c", []string{}, "Components names separated list")
 	labels = rootCmd.Flags().StringArrayP("label", "l", []string{}, "Labels names separated list")

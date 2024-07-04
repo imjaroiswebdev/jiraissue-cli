@@ -33,6 +33,7 @@ Flags:
       --csv string              CSV file path for bulk Jira issues creation (e.g., ./jira_issues.csv)
       --debug                   Enable debug of API calls
   -d, --description string      Description of the issue
+      --dry-run                 Dry run mode, no issue will be created, but the payload will be printed
   -e, --epic string             Epic Key (e.g., PROJ-2948)
       --fixversion string       Fix version name for the issue
   -h, --help                    help for jiraissue

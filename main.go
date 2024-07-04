@@ -67,6 +67,7 @@ type Client struct {
 	httpClient *http.Client
 	APIToken   string
 	Debug      bool
+	DryRun     bool
 }
 
 type FixVersion struct {
@@ -80,7 +81,7 @@ type FixVersion struct {
 }
 
 // CreateJiraIssue creates an issue in Jira
-func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID, fixVersionName, csvPath string, components, labels []string, isDebugEnabled bool) error {
+func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, priorityID, assigneeID, fixVersionName, csvPath string, components, labels []string, isDebugEnabled, isDryRunning bool) error {
 	// [ ] TODO: refactor params into an options struct for easier arguments management and validate this env vars at cmd.
 	jiraProjectKey, ok := os.LookupEnv("JIRA_PROJECT_KEY")
 	if !ok {
@@ -125,6 +126,7 @@ func CreateJiraIssue(summary, timeEstimate, description, epicKey, issueType, pri
 		httpClient: &http.Client{},
 		APIToken:   jiraAPIToken,
 		Debug:      isDebugEnabled,
+		DryRun:     isDryRunning,
 	}
 
 	ctx := context.Background()
@@ -142,7 +144,7 @@ func createJiraIssueAPICall(ctx context.Context, c *Client, issue *JiraIssue) (s
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", "https://pagerduty.atlassian.net/rest/api/3/issue", bytes.NewBuffer(issueJSON))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://pagerduty.atlassian.net/rest/api/3/issue", bytes.NewBuffer(issueJSON))
 	if err != nil {
 		return "", err
 	}
@@ -151,12 +153,15 @@ func createJiraIssueAPICall(ctx context.Context, c *Client, issue *JiraIssue) (s
 	req.Header.Set("Authorization", "Basic "+c.APIToken)
 
 	// [ ] TODO: Implement logging in roundtripper
-	if c.Debug {
+	if c.Debug || c.DryRun {
 		dumpedReq, err := httputil.DumpRequest(req, true)
 		if err == nil {
 			log.Println("[DEBUG] Request::>", string(dumpedReq))
-			log.Println("---")
 		}
+	}
+
+	if c.DryRun {
+		return fmt.Sprintf("%s-dry-run", issue.Fields.Project.Key), nil
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -170,7 +175,6 @@ func createJiraIssueAPICall(ctx context.Context, c *Client, issue *JiraIssue) (s
 		dumpedResp, err := httputil.DumpResponse(resp, true)
 		if err == nil {
 			log.Println("[DEBUG] Response::>", string(dumpedResp))
-			log.Println("---")
 		}
 	}
 
