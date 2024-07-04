@@ -78,3 +78,21 @@ $ go run ./cmd \
 Issue created. Link to issue https://pagerduty.atlassian.net/browse/PROJ-2926
 Issue created. Link to issue https://pagerduty.atlassian.net/browse/PROJ-2927
 ```
+
+## Using a `.env` file
+
+Create a `.env` file in the root of the project with the following content:
+
+```sh
+JIRA_API_TOKEN=<your_jira_api_token>
+JIRA_PROJECT_KEY=<your_jira_project_key>
+JIRA_SUBDOMAIN=<your_jira_subdomain>
+```
+
+Then a way to source the `.env` file variables is to run the following command:
+
+```sh
+$ export $(cat .env | xargs)
+```
+
+You should be ready to run the application with the necessary parameters.
